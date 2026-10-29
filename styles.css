@@ -1,11 +1,11 @@
 :root {
   --bg: #f6f5f2; --card: #ffffff; --text: #1d1d1f; --muted: #86868b; --line: #e3e1dc;
-  --accent: #1d1d1f; --accent-text: #ffffff; --good: #2e7d4f; --danger: #c0392b;
+  --accent: #1d1d1f; --accent-text: #ffffff; --good: #2e7d4f; --danger: #c0392b; --board: #ebe7e1;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #111111; --card: #1c1c1e; --text: #f2f2f2; --muted: #98989d; --line: #2c2c2e;
-          --accent: #f2f2f2; --accent-text: #111111; --good: #5cc488; }
+          --accent: #f2f2f2; --accent-text: #111111; --good: #5cc488; --board: #2a2a2c; }
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -37,10 +37,11 @@ button, .button {
 .danger { color: var(--danger); }
 button:disabled { opacity: .5; }
 
-.outfit .pieces { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.piece { text-align: center; font-size: 12px; color: var(--muted); min-width: 0; }
-.piece img, .tile img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; background: var(--bg); display: block; }
-.piece span { display: block; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.board { position: relative; aspect-ratio: 4 / 5; background: var(--board); border-radius: 12px; overflow: hidden; }
+.garment { position: absolute; object-fit: contain; filter: drop-shadow(0 3px 5px rgba(0,0,0,.22)); }
+.garment.photo { object-fit: cover; border-radius: 8px; }
+.names { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; font-size: 13px; }
+.tile img { width: 100%; aspect-ratio: 1; object-fit: contain; padding: 6px; border-radius: 10px; background: var(--board); display: block; }
 .reasons { list-style: none; padding: 0; margin: 10px 0; font-size: 13px; }
 .reasons li { padding: 1px 0; color: var(--muted); }
 .reasons li.plus::before { content: "+ "; color: var(--good); }
@@ -68,10 +69,14 @@ button:disabled { opacity: .5; }
 
 dialog { border: 0; border-radius: 18px; padding: 16px; width: min(92vw, 420px); background: var(--card); color: var(--text); }
 dialog::backdrop { background: rgba(0,0,0,.4); }
-dialog img { width: 100%; max-height: 40vh; object-fit: contain; border-radius: 12px; background: var(--bg); }
+dialog img { width: 100%; max-height: 40vh; object-fit: contain; border-radius: 12px; background: var(--board); }
 dialog label { display: block; margin: 12px 0; font-size: 14px; color: var(--muted); }
 dialog select { display: block; width: 100%; margin-top: 4px; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+.field { margin: 12px 0; font-size: 14px; color: var(--muted); }
 .color-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; color: var(--text); }
+.color-row .remove { margin-left: auto; padding: 4px 10px; background: var(--bg); }
+.add-color { margin-top: 6px; padding: 6px 10px; font-size: 13px; background: var(--bg); }
+#status { margin: -6px 0 12px; }
 .color-row input { width: 48px; height: 36px; border: 0; padding: 0; background: none; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips button { padding: 6px 10px; font-size: 13px; background: var(--bg); border-radius: 20px; }

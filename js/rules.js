@@ -39,17 +39,16 @@ export function validLayers(tops) {
 // Modische Grundregeln. points < 0 = Abzug, > 0 = Bonus. Neue Regeln einfach anhängen.
 export const RULES = [
   { points: 1, text: 'Layering-Look', test: (o, c) => mild(c) && o.tops.length >= 2 },
-  { points: 1, text: 'Kragen unter dem Pulli', test: (o, c) => mild(c) && o.tops.some((t, i) => is(t, 'shirtpolo') && is(o.tops[i + 1], 'pullover', 'knitvest')) },
-  { points: -2, text: 'Hemd/Polo über Langarmshirt', test: o => o.tops.some((t, i) => is(t, 'longsleeve') && is(o.tops[i + 1], 'shirtpolo')) },
+  { points: 1, text: 'Kragen unter dem Pulli', test: (o, c) => mild(c) && o.tops.some((t, i) => is(t, 'shirtpolo') && is(o.tops[i + 1], 'pullover')) },
+  { points: -2, text: 'Hemd/Polo über Longsleeve', test: o => o.tops.some((t, i) => is(t, 'longsleeve') && is(o.tops[i + 1], 'shirtpolo')) },
   { points: -3, text: 'Zu viele Schichten unter der Jacke', test: o => o.tops.filter(t => CATEGORY[t.category].slot !== 'outer').length > 3 },
-  { points: -4, text: 'Keine warme Jacke bei Kälte', test: (o, c) => c.temp != null && c.temp < 8 && !anyTop(o, 'heavyjacket', 'coat') },
+  { points: -4, text: 'Keine warme Jacke bei Kälte', test: (o, c) => c.temp != null && c.temp < 8 && !anyTop(o, 'heavyjacket') },
   { points: -3, text: 'Pulli bei über 22 °C', test: (o, c) => !mild(c) && o.tops.some(t => CATEGORY[t.category].slot === 'mid') },
-  { points: -3, text: 'Hoodie unter Sakko', test: o => anyTop(o, 'hoodie') && anyTop(o, 'blazer') },
   { points: 1, text: 'Shorts bei Hitze', test: (o, c) => c.temp != null && c.temp >= 25 && is(o.bottom, 'shorts') },
   { points: -6, text: 'Shorts bei unter 18 °C', test: (o, c) => c.temp != null && c.temp < 18 && is(o.bottom, 'shorts') },
   { points: -3, text: 'Boots bei über 22 °C', test: (o, c) => c.temp != null && c.temp > 22 && is(o.shoes, 'boots') },
-  { points: -4, text: 'Jacke bei über 24 °C', test: (o, c) => c.temp != null && c.temp > 24 && anyTop(o, 'lightjacket', 'heavyjacket', 'coat') },
-  { points: -5, text: 'Shorts mit Mantel, dicker Jacke oder Sakko', test: o => is(o.bottom, 'shorts') && anyTop(o, 'coat', 'heavyjacket', 'blazer') },
+  { points: -4, text: 'Jacke bei über 24 °C', test: (o, c) => c.temp != null && c.temp > 24 && anyTop(o, 'lightjacket', 'heavyjacket') },
+  { points: -5, text: 'Shorts mit Winterjacke oder Sakko', test: o => is(o.bottom, 'shorts') && anyTop(o, 'heavyjacket', 'blazer') },
   { points: -4, text: 'Shorts mit Boots oder Lederschuhen', test: o => is(o.bottom, 'shorts') && is(o.shoes, 'boots', 'leathershoe') },
   { points: -3, text: 'Gürtel zur Jogginghose', test: o => is(o.bottom, 'joggers') && o.accessories?.some(a => is(a, 'belt')) },
   { points: 1, text: 'Gürtel passt zu den Schuhen', test: o => {
@@ -72,10 +71,25 @@ function warmthScore(o, temp) {
   return { points: -1.5 * Math.abs(diff), text: diff > 0 ? 'Zu warm' : 'Zu kalt' };
 }
 
+// Deutlich sichtbare Farben eines Teils, Hauptfarbe zuerst (ältere Teile haben nur `color`).
+export const colorsOf = item =>
+  (item.colors?.length ? item.colors : [{ hex: item.color, share: 1 }]).filter((c, i) => i === 0 || c.share >= 0.1);
+const isPatterned = item => colorsOf(item).filter(c => c.share >= 0.2).length >= 2;
+
 export function colorScore(o) {
   const res = [];
-  const items = pieces(o).map(i => ({ ...i, lab: hexToLab(i.color), neutral: isNeutral(i.color, i.category) }));
-  const accents = items.filter(i => !i.neutral);
+  const items = pieces(o);
+
+  // Akzentfarben aller Teile inkl. Drucke; dieselbe Farbe in mehreren Teilen zählt einmal.
+  const accents = [];
+  for (const it of items) for (const c of colorsOf(it)) {
+    if (isNeutral(c.hex, it.category)) continue;
+    const lab = hexToLab(c.hex), same = accents.find(a => deltaE(a.lab, lab) < 15);
+    if (same) same.items.add(it.id);
+    else accents.push({ lab, items: new Set([it.id]) });
+  }
+  if (accents.some(a => a.items.size >= 2)) res.push({ points: 1, text: 'Farbe wird wieder aufgegriffen' });
+  if (items.filter(isPatterned).length >= 2) res.push({ points: -2, text: 'Mehrere gemusterte Teile' });
 
   if (accents.length <= 1) res.push({ points: accents.length ? 2 : 1, text: accents.length ? 'Ein Farbakzent, Rest neutral' : 'Ruhige neutrale Farben' });
   else if (accents.length > 3) res.push({ points: -1.5 * (accents.length - 3), text: 'Zu viele Farben' });
@@ -97,7 +111,7 @@ export function colorScore(o) {
   else if (deltaE(tl, bl) < 10 && !isNeutral(top.color, top.category)) res.push({ points: -1, text: 'Oben und unten fast gleiche Farbe' });
 
   // Wada: Farbpaare, die im Buch gemeinsam in einer Kombination stehen.
-  const wada = [...new Map(items.map(i => nearestWada(i.color)).filter(Boolean).map(w => [w.index, w])).values()];
+  const wada = [...new Map(items.flatMap(i => colorsOf(i).map(c => nearestWada(c.hex))).filter(Boolean).map(w => [w.index, w])).values()];
   let pairs = 0;
   for (let i = 0; i < wada.length; i++) for (let j = i + 1; j < wada.length; j++)
     if (wada[i].combos.some(c => wada[j].combos.includes(c))) pairs++;

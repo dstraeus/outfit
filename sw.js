@@ -1,9 +1,9 @@
 // Offline-Fähigkeit: App-Dateien netzwerk-zuerst (Updates kommen sofort an), CDN-Bibliothek cache-zuerst.
 // Das Erkennungsmodell cacht transformers.js selbst (eigener Cache "transformers-cache").
-const CACHE = 'outfit-v1';
+const CACHE = 'outfit-v2';
 const SHELL = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', 'icon-180.png', 'icon-512.png',
   'js/app.js', 'js/catalog.js', 'js/classify.js', 'js/color.js', 'js/db.js', 'js/generator.js',
-  'js/rules.js', 'js/wada.js', 'js/weather.js'];
+  'js/lib.js', 'js/rules.js', 'js/segment.js', 'js/wada.js', 'js/weather.js'];
 
 self.addEventListener('install', e => e.waitUntil(
   caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())));

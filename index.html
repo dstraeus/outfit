@@ -22,6 +22,7 @@
   <main>
     <section id="view-outfit">
       <p id="weather-text" class="muted"></p>
+      <p id="status" class="muted" hidden></p>
       <div id="outfit"><p class="muted">Outfit wird zusammengestellt …</p></div>
     </section>
 
@@ -50,9 +51,7 @@
       <p id="ed-status" class="muted"></p>
       <div id="ed-suggest" class="chips"></div>
       <label>Art <select id="ed-category"></select></label>
-      <label>Farbe
-        <span class="color-row"><input id="ed-color" type="color"> <span id="ed-colorname"></span></span>
-      </label>
+      <div class="field">Farben <div id="ed-colors"></div></div>
       <div class="actions">
         <button id="ed-delete" value="delete" class="danger">Löschen</button>
         <button value="cancel">Abbrechen</button>

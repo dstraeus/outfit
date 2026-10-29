@@ -51,7 +51,7 @@ const NAMES = [
   ['Weiß', '#f5f5f5'], ['Creme', '#f2ead3'], ['Beige', '#d8c3a0'], ['Camel', '#b8865b'],
   ['Braun', '#6b4a2f'], ['Dunkelbraun', '#3f2a1c'], ['Navy', '#1f2a44'], ['Blau', '#2f5fb3'],
   ['Hellblau', '#9cc3e6'], ['Jeansblau', '#4a6a8f'], ['Türkis', '#2aa7a1'], ['Dunkelgrün', '#1f4d36'],
-  ['Grün', '#3c8d3f'], ['Olivgrün', '#6b6b3a'], ['Mint', '#b5e3c8'], ['Gelb', '#f2d13c'],
+  ['Grün', '#3c8d3f'], ['Olivgrün', '#6b6b3a'], ['Mint', '#b5e3c8'], ['Gelb', '#f2d13c'], ['Hellgelb', '#ece28f'],
   ['Senf', '#c9a227'], ['Orange', '#e07b28'], ['Rot', '#c62a2a'], ['Bordeaux', '#6d1a2a'],
   ['Rosa', '#f2b6c6'], ['Lila', '#6a4c9c'], ['Flieder', '#c3b1e1'],
 ].map(([name, hex]) => ({ name, lab: hexToLab(hex) }));
@@ -82,21 +82,32 @@ function findWada(hex, maxDist) {
   return bestD <= maxDist ? best : null;
 }
 
-// Hauptfarbe eines Fotos: k-means in Lab über die Bildmitte,
-// Cluster, die dem Hintergrund (Bildrand) ähneln, werden übersprungen.
-export function dominantColor(data, w, h, k = 4) {
-  const px = (x, y) => { const i = (y * w + x) * 4; return [data[i], data[i + 1], data[i + 2]]; };
-  const border = [], center = [];
-  const mx = Math.floor(w * 0.1), my = Math.floor(h * 0.1);
-  const cx = Math.floor(w * 0.15), cy = Math.floor(h * 0.15);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    if (x < mx || x >= w - mx || y < my || y >= h - my) border.push(px(x, y));
-    else if (x >= cx && x < w - cx && y >= cy && y < h - cy) center.push(px(x, y));
-  }
-  const mean = list => [0, 1, 2].map(c => list.reduce((s, p) => s + p[c], 0) / list.length);
-  const bgLab = rgbToLab(mean(border));
+// Unterschiede in der Helligkeit (Falten, Schatten) zählen nur halb. In dunklen Tönen schluckt
+// der Schatten auch die Sättigung (dunkles Navy wirkt fast schwarz), dort zählt auch die Farbe weniger.
+function shadeDistance(p, q) {
+  const f = Math.min(1, (Math.min(p[0], q[0]) + 10) / 50);
+  return Math.hypot((p[0] - q[0]) * 0.5, (p[1] - q[1]) * f, (p[2] - q[2]) * f);
+}
 
-  const pts = center.map(rgb => ({ rgb, lab: rgbToLab(rgb) })).sort((a, b) => a.lab[0] - b.lab[0]);
+// Farben eines Fotos: k-means in Lab, ähnliche Cluster zusammengefasst, bis zu 3 Farben mit Anteil.
+// Mit transparentem Hintergrund (freigestellt) zählen nur die Pixel des Kleidungsstücks;
+// sonst die Bildmitte, und Cluster ähnlich dem Bildrand (Hintergrund) werden übersprungen.
+export function dominantColors(data, w, h, k = 6) {
+  const px = i => [data[i], data[i + 1], data[i + 2]];
+  const mean = list => [0, 1, 2].map(c => list.reduce((s, p) => s + p[c], 0) / list.length);
+  let cutout = false;
+  for (let i = 3; i < data.length; i += 4) if (data[i] < 250) { cutout = true; break; }
+
+  const fg = [], border = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4;
+    if (cutout) { if (data[i + 3] > 200) fg.push(px(i)); continue; }
+    if (x < w * 0.1 || x >= w * 0.9 || y < h * 0.1 || y >= h * 0.9) border.push(px(i));
+    else if (x >= w * 0.15 && x < w * 0.85 && y >= h * 0.15 && y < h * 0.85) fg.push(px(i));
+  }
+  const bgLab = cutout ? null : rgbToLab(mean(border));
+
+  const pts = fg.map(rgb => ({ rgb, lab: rgbToLab(rgb) })).sort((a, b) => a.lab[0] - b.lab[0]);
   let cents = Array.from({ length: k }, (_, i) => pts[Math.floor((i + 0.5) * pts.length / k)].lab);
   let groups;
   for (let iter = 0; iter < 10; iter++) {
@@ -108,9 +119,25 @@ export function dominantColor(data, w, h, k = 4) {
     }
     cents = groups.map((g, i) => g.length ? mean(g.map(p => p.lab)) : cents[i]);
   }
-  const clusters = groups.filter(g => g.length)
+  let clusters = groups.filter(g => g.length)
     .map(g => ({ size: g.length, rgb: mean(g.map(p => p.rgb)), lab: mean(g.map(p => p.lab)) }))
     .sort((a, b) => b.size - a.size);
-  const fg = clusters.find(c => deltaE(c.lab, bgLab) > 15) || clusters[0];
-  return rgbToHex(fg.rgb);
+  if (bgLab) {
+    const garment = clusters.filter(c => deltaE(c.lab, bgLab) > 15);
+    if (garment.length) clusters = garment;
+  }
+
+  const merged = [];
+  for (const c of clusters) {
+    const m = merged.find(x => shadeDistance(x.lab, c.lab) < 14);
+    if (!m) { merged.push({ ...c }); continue; }
+    const t = m.size + c.size;
+    m.rgb = m.rgb.map((v, i) => (v * m.size + c.rgb[i] * c.size) / t);
+    m.lab = m.lab.map((v, i) => (v * m.size + c.lab[i] * c.size) / t);
+    m.size = t;
+  }
+  const total = merged.reduce((s, c) => s + c.size, 0);
+  return merged.sort((a, b) => b.size - a.size)
+    .filter((c, i) => i === 0 || c.size / total >= 0.08).slice(0, 3)
+    .map(c => ({ hex: rgbToHex(c.rgb), share: Math.round(c.size / total * 100) / 100 }));
 }

@@ -2,13 +2,13 @@
 // englischen Beschreibungen aus catalog.js (neue Kategorie = neuer prompt, kein Training nötig).
 // Das Modell (~150 MB) wird beim ersten Mal geladen und danach vom Browser gecacht.
 import { CATEGORIES } from './catalog.js';
+import { transformers } from './lib.js';
 
-const LIB = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2';
 const MODEL = 'Xenova/clip-vit-base-patch32';
 let classifier;
 
 function load(onProgress) {
-  return classifier ??= import(LIB).then(({ pipeline }) =>
+  return classifier ??= transformers().then(({ pipeline }) =>
     pipeline('zero-shot-image-classification', MODEL, { dtype: 'q8', progress_callback: onProgress }));
 }
 
