@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Outfit</title>
+  <meta name="theme-color" content="#f6f5f2">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Outfit">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="bar">
+    <button id="back" class="icon" hidden>‹ Zurück</button>
+    <h1 id="title">Heute</h1>
+    <button id="menu-btn" class="icon" aria-label="Menü">☰</button>
+  </header>
+
+  <main>
+    <section id="view-outfit">
+      <p id="weather-text" class="muted"></p>
+      <div id="outfit"><p class="muted">Outfit wird zusammengestellt …</p></div>
+    </section>
+
+    <section id="view-wardrobe" hidden>
+      <label for="photo" class="primary button">+ Kleidungsstück hinzufügen</label>
+      <div id="wardrobe"></div>
+    </section>
+  </main>
+
+  <input id="photo" type="file" accept="image/*" hidden>
+
+  <dialog id="menu" class="sheet">
+    <form method="dialog">
+      <label for="photo" class="menu-item">＋ Kleidungsstück hinzufügen</label>
+      <button value="wardrobe" class="menu-item">Mein Schrank</button>
+      <label class="menu-item temp-row">Temperatur (gefühlt)
+        <span><input id="temp" type="number" inputmode="decimal" step="1"> °C</span>
+      </label>
+      <button value="close" class="menu-item muted">Schließen</button>
+    </form>
+  </dialog>
+
+  <dialog id="editor">
+    <form method="dialog">
+      <img id="ed-photo" alt="">
+      <p id="ed-status" class="muted"></p>
+      <div id="ed-suggest" class="chips"></div>
+      <label>Art <select id="ed-category"></select></label>
+      <label>Farbe
+        <span class="color-row"><input id="ed-color" type="color"> <span id="ed-colorname"></span></span>
+      </label>
+      <div class="actions">
+        <button id="ed-delete" value="delete" class="danger">Löschen</button>
+        <button value="cancel">Abbrechen</button>
+        <button value="save" class="primary">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
