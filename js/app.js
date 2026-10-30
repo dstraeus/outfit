@@ -5,8 +5,7 @@ import { generateOutfits } from './generator.js';
 import { pieces, applyFeedback } from './rules.js';
 import { getItems, putItem, deleteItem, getValue, setValue } from './db.js';
 import { getWeather } from './weather.js';
-import { classify } from './classify.js';
-import { removeBackground } from './segment.js';
+import { removeBackground, classify, safeLevel, resetSafeMode } from './ml.js';
 
 const $ = s => document.querySelector(s);
 const el = (tag, props = {}, ...children) => {
@@ -86,6 +85,13 @@ function loadImage(blob) {
 
 const toBlob = (canvas, type, quality) => new Promise(r => canvas.toBlob(r, type, quality));
 
+async function canvasFromBlob(blob) {
+  const img = await loadImage(blob);
+  const c = el('canvas', { width: img.width, height: img.height });
+  c.getContext('2d').drawImage(img, 0, 0);
+  return c;
+}
+
 async function resizePhoto(file) {
   const img = await loadImage(file);
   const scale = Math.min(1, 512 / Math.max(img.width, img.height));
@@ -103,13 +109,13 @@ function colorsFromCanvas(src) {
 }
 
 // Freigestelltes Teil auf Weiß – damit die Erkennung nicht vom Hintergrund abgelenkt wird.
-async function flatUrl(canvas) {
+function flatBlob(canvas) {
   const c = el('canvas', { width: canvas.width, height: canvas.height });
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, c.width, c.height);
   ctx.drawImage(canvas, 0, 0);
-  return URL.createObjectURL(await toBlob(c, 'image/jpeg', 0.9));
+  return toBlob(c, 'image/jpeg', 0.9);
 }
 
 const progress = (name, say) => p => {
@@ -117,23 +123,20 @@ const progress = (name, say) => p => {
 };
 
 async function analyze(photo, say = () => {}) {
-  const source = el('canvas');
-  const img = await loadImage(photo);
-  Object.assign(source, { width: img.width, height: img.height });
-  source.getContext('2d').drawImage(img, 0, 0);
-  let cut = null;
-  const url = URL.createObjectURL(photo);
-  try {
-    say('Stelle Kleidungsstück frei …');
-    cut = await removeBackground(url, progress('Freisteller', say));
-  } catch (e) { console.error(e); }
-  URL.revokeObjectURL(url);
-  const canvas = cut || source;
-  return { cutout: cut && await toBlob(cut, 'image/png'), colors: colorsFromCanvas(canvas), canvas };
+  let cutout = null;
+  if (safeLevel() < 2) {
+    try {
+      say('Stelle Kleidungsstück frei …');
+      cutout = await removeBackground(photo, progress('Freisteller', say));
+    } catch (e) { console.error(e); }
+  }
+  const canvas = await canvasFromBlob(cutout || photo);
+  return { cutout, colors: colorsFromCanvas(canvas), canvas };
 }
 
 // Ältere oder unfertig gespeicherte Teile im Hintergrund nachbearbeiten.
 async function processPending() {
+  if (safeLevel() >= 2) return;
   const pending = items.filter(i => (i.v || 0) < VERSION);
   for (let n = 0; n < pending.length; n++) {
     $('#status').hidden = false;
@@ -217,10 +220,15 @@ $('#photo').onchange = async e => {
     editColors = result.colors.map(c => ({ ...c }));
     renderColors();
 
+    // Nach einem Absturz bei der Erkennung: sicherer Modus, Art von Hand wählen.
+    if (safeLevel() >= 1) {
+      say('Automatische Erkennung pausiert (letzter Versuch ist abgestürzt) – bitte Art wählen.');
+      $('#ed-suggest').replaceChildren(el('button', { type: 'button', textContent: 'Beim nächsten Teil wieder versuchen',
+        onclick: e => { resetSafeMode(); e.target.textContent = 'Wird beim nächsten Teil versucht'; } }));
+      return;
+    }
     say('Erkenne Kleidungsstück …');
-    const url = await flatUrl(result.canvas);
-    const results = await classify(url, progress('Erkennung', say));
-    URL.revokeObjectURL(url);
+    const results = await classify(await flatBlob(result.canvas), progress('Erkennung', say));
     if (mine !== token) return;
     $('#ed-category').value = results[0].category;
     say('Erkannt – bitte kurz prüfen:');

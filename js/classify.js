@@ -1,4 +1,4 @@
-// Bilderkennung direkt auf dem Handy: CLIP vergleicht das Foto mit den
+// Bilderkennung (läuft im Worker): CLIP vergleicht das Foto mit den
 // englischen Beschreibungen aus catalog.js (neue Kategorie = neuer prompt, kein Training nötig).
 // Das Modell (~150 MB) wird beim ersten Mal geladen und danach vom Browser gecacht.
 import { CATEGORIES } from './catalog.js';
@@ -13,10 +13,11 @@ function load(onProgress) {
 }
 
 // Liefert [{ category, score }] absteigend sortiert; Prompts einer Kategorie werden addiert.
-export async function classify(imageUrl, onProgress) {
+export async function classify(blob, onProgress) {
+  const { RawImage } = await transformers();
   const clf = await load(onProgress);
   const prompts = CATEGORIES.flatMap(c => c.prompts.map(p => [p, c.id]));
-  const out = await clf(imageUrl, prompts.map(([p]) => p), { hypothesis_template: 'a photo of {}' });
+  const out = await clf(await RawImage.fromBlob(blob), prompts.map(([p]) => p), { hypothesis_template: 'a photo of {}' });
   const scores = {};
   for (const r of out) {
     const id = prompts.find(([p]) => p === r.label)[1];

@@ -52,6 +52,9 @@ Dann `http://localhost:8123` öffnen. Tests der Outfit-Logik: `npm test` (Node �
 - Die Erkennung (CLIP, läuft auf dem Handy) ist ein Kompromiss aus Größe und Genauigkeit. Eine bessere Erkennung
   (größeres Modell oder ein Server/KI-Dienst) wäre ein eigener nächster Schritt.
 - Freistellen dauert je nach iPhone einige Sekunden pro Teil (mit WebGPU ab iOS 26 schneller).
+- Die Modelle laufen nacheinander in einem Web Worker (`js/ml.js`), damit nie zwei gleichzeitig im Speicher sind.
+  Stürzt die Seite trotzdem während eines Modells ab, schaltet die App beim nächsten Start in einen sicheren Modus
+  (Freistellen ohne WebGPU, Art von Hand wählen); im Editor lässt sich das wieder zurücksetzen.
 - Bis zu 3 Farben pro Teil mit Anteil; Drucke ab ca. 10 % Fläche zählen in der Farbbewertung mit,
   ab 2 Farben mit je ≥ 20 % gilt ein Teil als gemustert (zwei gemusterte Teile in einem Outfit kosten Punkte).
 - Daten liegen nur auf dem Gerät (kein Backup, keine Synchronisation).
